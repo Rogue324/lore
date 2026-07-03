@@ -40,6 +40,9 @@ pub struct AdminSettings {
     /// is set.
     #[serde(default)]
     pub listen_port: Option<i32>,
+    /// Public base URL used in browser login links generated for the CLI.
+    #[serde(default)]
+    pub public_base_url: String,
 }
 
 fn default_session_ttl_seconds() -> u64 {
@@ -61,6 +64,7 @@ impl Default for AdminSettings {
             cookie_name: default_cookie_name(),
             listen_address: None,
             listen_port: None,
+            public_base_url: String::new(),
         }
     }
 }

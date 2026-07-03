@@ -26,7 +26,9 @@ use crate::authnz::auth::grpc_get_auth_client;
 use crate::authnz::common::create_request_with_authorization;
 use crate::grpc::ServerResultExt;
 use crate::grpc::extract_correlation_id;
+use crate::grpc::get_authorization;
 use crate::grpc::get_user_id;
+use crate::grpc::is_local_admin_auth_url;
 use crate::util::setup_execution;
 
 #[tracing::instrument(name = "RepositoryList::handle", skip_all)]
@@ -43,6 +45,11 @@ pub async fn handler(
         .get("authorization")
         .and_then(|value| value.to_str().ok())
         .map(|s| s.to_string());
+    let local_admin_authenticated = auth_url
+        .as_deref()
+        .is_some_and(is_local_admin_auth_url)
+        .then(|| get_authorization(request.extensions()))
+        .transpose()?;
     let _req = request.into_inner();
 
     let execution = setup_execution(module_path!(), correlation_id, user_id);
@@ -56,7 +63,9 @@ pub async fn handler(
     LORE_CONTEXT
         .scope(execution, async move {
             // TODO(mjansson): Change this to a streaming response
-            let mut authorized_repositories = if let Some(auth_url) = auth_url {
+            let mut authorized_repositories = if let Some(auth_url) = auth_url
+                && !is_local_admin_auth_url(&auth_url)
+            {
                 let authorized_repositories =
                     lookup_authorized_repositories(auth_url, authorization).await?;
 
@@ -74,6 +83,7 @@ pub async fn handler(
 
                 meta_tasks
             } else {
+                let _local_admin_authenticated = local_admin_authenticated;
                 let mut repository_list = repository::list_local(repository.clone())
                     .await
                     .warn_map_err(|err| {

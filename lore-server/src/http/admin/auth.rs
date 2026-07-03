@@ -16,14 +16,13 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use super::AdminAppState;
 use super::audit::audit;
 use super::middleware::{AdminAuth, build_set_cookie_header, ok};
 use super::session::{SessionClaims, current_unix_seconds};
 use super::store::{
-    AdminUserView, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERNAME, UserStore, hash_password,
-    verify_password,
+    AdminUserView, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERNAME, hash_password, verify_password,
 };
-use super::AdminAppState;
 
 #[derive(Debug, Deserialize)]
 pub struct LoginRequest {
@@ -38,10 +37,7 @@ pub struct LoginResponse {
     pub user: AdminUserView,
 }
 
-pub async fn login(
-    State(state): State<AdminAppState>,
-    Json(req): Json<LoginRequest>,
-) -> Response {
+pub async fn login(State(state): State<AdminAppState>, Json(req): Json<LoginRequest>) -> Response {
     // Look up user. Always take roughly the same code path so timing
     // doesn't leak whether the username exists.
     let user = match state.user_store.find_by_username(&req.username).await {
@@ -127,10 +123,13 @@ pub async fn login(
 }
 
 fn unauthorized() -> Response {
-    (StatusCode::UNAUTHORIZED, Json(serde_json::json!({
-        "error": "invalid credentials"
-    })))
-    .into_response()
+    (
+        StatusCode::UNAUTHORIZED,
+        Json(serde_json::json!({
+            "error": "invalid credentials"
+        })),
+    )
+        .into_response()
 }
 
 fn internal(msg: impl Into<String>) -> Response {

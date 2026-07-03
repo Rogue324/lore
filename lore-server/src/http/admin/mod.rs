@@ -16,17 +16,18 @@ use anyhow::{Context, Result, anyhow};
 use axum::Router;
 use axum::routing::get;
 
-use super::super::server::ServerState;
-use super::config::AdminSettings;
-use super::session::{SessionStore, SessionVerifier};
-use super::store::{JsonFileUserStore, UserStore};
-pub mod session;
-pub mod store;
-pub mod config;
+use self::client_auth::{PendingClientAuthStore, pending_store};
+use self::config::AdminSettings;
+use self::session::{SessionStore, SessionVerifier};
+use self::store::{JsonFileUserStore, UserStore};
 pub mod audit;
 pub mod auth;
-pub mod users;
+pub mod client_auth;
+pub mod config;
 pub mod middleware;
+pub mod session;
+pub mod store;
+pub mod users;
 
 #[cfg(test)]
 mod tests;
@@ -45,6 +46,9 @@ pub struct AdminAppState {
     pub cookie_name: String,
     pub cookie_secure: bool,
     pub session_ttl_seconds: u64,
+    pub public_base_url: String,
+    pub business_jwt_secret: String,
+    pub client_auth_sessions: Arc<PendingClientAuthStore>,
 }
 
 impl AsRef<AdminAppState> for AdminAppState {
@@ -75,6 +79,16 @@ pub async fn build_admin_state(settings: &AdminSettings) -> Result<AdminAppState
     let session_verifier = SessionVerifier::new(settings.session_jwt_secret.as_bytes())
         .map_err(|e| anyhow!("session verifier: {e}"))?;
 
+    let public_base_url = if settings.public_base_url.trim().is_empty() {
+        format!(
+            "http://{}:{}",
+            settings.listen_address.as_deref().unwrap_or("127.0.0.1"),
+            settings.listen_port.unwrap_or(41339),
+        )
+    } else {
+        settings.public_base_url.trim_end_matches('/').to_string()
+    };
+
     Ok(AdminAppState {
         user_store,
         session_verifier: Arc::new(session_verifier),
@@ -82,6 +96,9 @@ pub async fn build_admin_state(settings: &AdminSettings) -> Result<AdminAppState
         cookie_name: settings.cookie_name.clone(),
         cookie_secure: settings.cookie_secure,
         session_ttl_seconds: settings.session_ttl_seconds,
+        public_base_url,
+        business_jwt_secret: settings.session_jwt_secret.clone(),
+        client_auth_sessions: pending_store(),
     })
 }
 
@@ -90,8 +107,9 @@ pub async fn build_admin_state(settings: &AdminSettings) -> Result<AdminAppState
 /// `Router::nest`.
 pub fn create_router(state: AdminAppState) -> Router {
     let stateful: Router<AdminAppState> = Router::new()
-        .nest("/auth", auth::router(state.clone()))
-        .nest("/users", users::router(state.clone()));
+        .nest("/api/auth", auth::router(state.clone()))
+        .nest("/api/client-auth", client_auth::router(state.clone()))
+        .nest("/api/users", users::router(state.clone()));
 
     // Static SPA assets (index.html, app.js, app.css) — no state needed.
     let static_routes = Router::new()
@@ -108,7 +126,10 @@ pub fn create_router(state: AdminAppState) -> Router {
             "/app.js",
             get(|| async {
                 (
-                    [(axum::http::header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
+                    [(
+                        axum::http::header::CONTENT_TYPE,
+                        "application/javascript; charset=utf-8",
+                    )],
                     APP_JS.to_string(),
                 )
             }),
@@ -123,15 +144,23 @@ pub fn create_router(state: AdminAppState) -> Router {
             }),
         );
 
-    stateful
-        .with_state(state)
-        .merge(static_routes)
+    stateful.with_state(state).merge(static_routes)
 }
 
 /// Mount the admin router on the parent HTTP router. Pass `None` to skip.
-pub fn mount(parent: Router<ServerState>, state: Option<AdminAppState>) -> Router<ServerState> {
+pub fn mount(parent: Router, state: Option<AdminAppState>) -> Router {
     match state {
-        Some(state) => parent.nest("/admin", create_router(state)),
+        Some(state) => parent
+            .route(
+                "/admin/",
+                get(|| async {
+                    (
+                        [(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")],
+                        INDEX_HTML.to_string(),
+                    )
+                }),
+            )
+            .nest("/admin", create_router(state)),
         None => parent,
     }
 }

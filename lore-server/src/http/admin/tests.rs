@@ -20,7 +20,7 @@ use serde_json::json;
 use uuid::Uuid;
 
 use super::AdminAppState;
-use super::session::{SessionStore, SessionVerifier, AdminRole};
+use super::session::{AdminRole, SessionStore, SessionVerifier};
 use super::store::{
     AdminUser, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERNAME, InMemoryUserStore, hash_password,
 };
@@ -355,7 +355,11 @@ async fn login_as_admin(server: &TestServer) -> String {
             "password": DEFAULT_ADMIN_PASSWORD,
         }))
         .await;
-    assert_eq!(resp.status_code(), StatusCode::OK, "admin login must succeed");
+    assert_eq!(
+        resp.status_code(),
+        StatusCode::OK,
+        "admin login must succeed"
+    );
     let body: serde_json::Value = resp.json();
     body["token"].as_str().unwrap().to_string()
 }

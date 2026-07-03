@@ -62,7 +62,7 @@ use tracing::info_span;
 use tracing::trace;
 use tracing::warn;
 
-use crate::auth::jwk::JwkServiceImpl;
+use crate::auth::jwk::{JwkServiceImpl, LocalHmacJwkService};
 use crate::auth::jwt::JwtVerifier;
 use crate::grpc::GrpcInternalServerBuilder;
 use crate::grpc::GrpcServerBuilder;
@@ -73,6 +73,7 @@ use crate::hooks::HookDispatcher;
 use crate::hooks::HookRegistrationContext;
 use crate::hooks::HookRegistry;
 use crate::http::LoreHttpServer;
+use crate::http::admin::client_auth::{LOCAL_AUTH_AUDIENCE, LOCAL_AUTH_ISSUER};
 use crate::http::admin::{self, AdminAppState};
 use crate::http::server::LoreHttpServerSettings;
 use crate::http::server::PresignSettings;
@@ -1755,7 +1756,19 @@ async fn async_main(settings: (Settings, StringHash), config: ServerConfig) -> R
             }
             None => None,
         },
-        None => None,
+        None => settings
+            .server
+            .http
+            .as_ref()
+            .and_then(|http| http.admin.as_ref())
+            .filter(|admin| admin.enabled)
+            .map(|admin| JwtVerifier {
+                jwk_service: Arc::new(LocalHmacJwkService::new(
+                    admin.session_jwt_secret.as_bytes(),
+                )),
+                jwt_issuer: Some(LOCAL_AUTH_ISSUER.to_string()),
+                jwt_audience: Some(vec![LOCAL_AUTH_AUDIENCE.to_string()]),
+            }),
     };
 
     let forwarded_requests: Option<Arc<dyn ForwardedRequests>> = if let Some(grpc_public_services) =

@@ -7,20 +7,21 @@
 // Two pieces work together: this extractor (short-circuits with 401) and the
 // role-check helpers below (return 403). The cookie path is used by the
 // browser SPA; the bearer path is used by API clients.
+use std::future::Future;
 use std::str::FromStr;
 
-use axum::extract::{FromRef, FromRequestParts, State};
+use axum::Json;
+use axum::extract::{FromRequestParts, State};
 use axum::http::header::{AUTHORIZATION, COOKIE, HeaderMap};
 use axum::http::request::Parts;
 use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use serde::Serialize;
 use thiserror::Error;
 use uuid::Uuid;
 
-use super::session::{SessionClaims, SessionError};
 use super::AdminAppState;
+use super::session::SessionClaims;
 
 /// Wraps an authenticated session. Use as a handler argument.
 #[derive(Clone, Debug)]
@@ -67,7 +68,9 @@ impl ApiAuthError {
             ApiAuthError::NotFound(_) => (StatusCode::NOT_FOUND, "not_found"),
             ApiAuthError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.as_str()),
         };
-        let body = ErrorBody { error: code.to_string() };
+        let body = ErrorBody {
+            error: code.to_string(),
+        };
         (status, Json(body)).into_response()
     }
 }
@@ -77,33 +80,28 @@ pub struct ErrorBody {
     pub error: String,
 }
 
-impl FromRef<AdminAppState> for AdminAppState {
-    fn from_ref(input: &AdminAppState) -> Self {
-        input.clone()
-    }
-}
-
-#[async_trait::async_trait]
 impl FromRequestParts<AdminAppState> for AdminAuth {
     type Rejection = Response;
 
-    async fn from_request_parts(
+    fn from_request_parts(
         parts: &mut Parts,
         state: &AdminAppState,
-    ) -> Result<Self, Self::Rejection> {
-        let token = extract_token(&parts.headers, &state.cookie_name)
-            .ok_or_else(|| ApiAuthError::Unauthorized.into_response())?;
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send {
+        async move {
+            let token = extract_token(&parts.headers, &state.cookie_name)
+                .ok_or_else(|| ApiAuthError::Unauthorized.into_response())?;
 
-        let claims = state
-            .session_verifier
-            .verify(&token)
-            .map_err(|_| ApiAuthError::Unauthorized.into_response())?;
+            let claims = state
+                .session_verifier
+                .verify(&token)
+                .map_err(|_| ApiAuthError::Unauthorized.into_response())?;
 
-        if state.session_store.is_revoked(&claims.jti).await {
-            return Err(ApiAuthError::Unauthorized.into_response());
+            if state.session_store.is_revoked(&claims.jti).await {
+                return Err(ApiAuthError::Unauthorized.into_response());
+            }
+
+            Ok(AdminAuth(claims))
         }
-
-        Ok(AdminAuth(claims))
     }
 }
 
@@ -159,7 +157,9 @@ pub fn ensure_content_type_json(headers: &HeaderMap) -> Result<(), ApiAuthError>
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
     if !ct.starts_with("application/json") {
-        return Err(ApiAuthError::BadRequest("expected application/json body".into()));
+        return Err(ApiAuthError::BadRequest(
+            "expected application/json body".into(),
+        ));
     }
     Ok(())
 }

@@ -117,7 +117,9 @@ pub struct InMemoryUserStore {
 
 impl InMemoryUserStore {
     pub fn new() -> Arc<Self> {
-        Arc::new(Self { inner: RwLock::new(HashMap::new()) })
+        Arc::new(Self {
+            inner: RwLock::new(HashMap::new()),
+        })
     }
 }
 
@@ -204,10 +206,16 @@ impl JsonFileUserStore {
             (m, true)
         };
 
-        let store = Arc::new(Self { path, inner: RwLock::new(users) });
+        let store = Arc::new(Self {
+            path,
+            inner: RwLock::new(users),
+        });
 
         if created {
-            store.flush().await.context("writing bootstrap admin to disk")?;
+            store
+                .flush()
+                .await
+                .context("writing bootstrap admin to disk")?;
             tracing::warn!(
                 username = DEFAULT_ADMIN_USERNAME,
                 "bootstrapped default admin account; rotate the password on first login"
@@ -264,7 +272,9 @@ impl UserStore for JsonFileUserStore {
             }
             g.insert(user.id, user.clone());
         }
-        self.flush().await.map_err(|e| UserStoreError::Internal(e.to_string()))?;
+        self.flush()
+            .await
+            .map_err(|e| UserStoreError::Internal(e.to_string()))?;
         Ok(user)
     }
 
@@ -276,7 +286,9 @@ impl UserStore for JsonFileUserStore {
             }
             g.insert(user.id, user.clone());
         }
-        self.flush().await.map_err(|e| UserStoreError::Internal(e.to_string()))?;
+        self.flush()
+            .await
+            .map_err(|e| UserStoreError::Internal(e.to_string()))?;
         Ok(user)
     }
 
@@ -287,7 +299,9 @@ impl UserStore for JsonFileUserStore {
                 return Err(UserStoreError::NotFound);
             }
         }
-        self.flush().await.map_err(|e| UserStoreError::Internal(e.to_string()))?;
+        self.flush()
+            .await
+            .map_err(|e| UserStoreError::Internal(e.to_string()))?;
         Ok(())
     }
 }
@@ -332,7 +346,10 @@ mod tests {
             disabled: false,
         };
         s.create(mk()).await.unwrap();
-        assert!(matches!(s.create(mk()).await, Err(UserStoreError::UsernameTaken)));
+        assert!(matches!(
+            s.create(mk()).await,
+            Err(UserStoreError::UsernameTaken)
+        ));
     }
 
     #[tokio::test]

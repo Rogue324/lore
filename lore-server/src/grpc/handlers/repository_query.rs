@@ -28,6 +28,7 @@ use crate::authnz::common::create_request_with_authorization;
 use crate::grpc::ServerResultExt;
 use crate::grpc::extract_correlation_id;
 use crate::grpc::get_user_id;
+use crate::grpc::is_local_admin_auth_url;
 use crate::util::setup_execution;
 
 #[tracing::instrument(name = "RepositoryQuery::handle", skip_all)]
@@ -217,6 +218,10 @@ pub(crate) async fn check_repository_query_authorization(
     repository_id: RepositoryId,
 ) -> Result<(), Status> {
     lore_debug!("Repository query authorization check for {}", repository_id,);
+
+    if is_local_admin_auth_url(&auth_url) {
+        return Ok(());
+    }
 
     let mut client = grpc_get_auth_client(auth_url).await?;
     let resource_id = format!("urc-{repository_id}");

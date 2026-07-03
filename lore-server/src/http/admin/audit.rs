@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use super::session::SessionClaims;
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 struct AuditEvent<'a> {
     at: chrono::DateTime<Utc>,
     actor_id: Uuid,
@@ -24,7 +24,12 @@ struct AuditEvent<'a> {
 }
 
 /// Emit a structured audit event. `target` and `detail` are optional.
-pub fn audit(actor: &SessionClaims, action: &str, target: Option<&str>, detail: Option<serde_json::Value>) {
+pub fn audit(
+    actor: &SessionClaims,
+    action: &str,
+    target: Option<&str>,
+    detail: Option<serde_json::Value>,
+) {
     let event = AuditEvent {
         at: Utc::now(),
         actor_id: actor.sub,

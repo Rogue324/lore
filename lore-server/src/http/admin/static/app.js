@@ -4,6 +4,7 @@
 const API = '/admin/api';
 let session = null; // { token, expires_at, user }
 let me = null;
+let clientAuth = null;
 
 function $(sel) { return document.querySelector(sel); }
 function $$(sel) { return Array.from(document.querySelectorAll(sel)); }
@@ -35,6 +36,9 @@ async function api(path, opts = {}) {
 }
 
 async function login(username, password) {
+  const button = $('#login-form button[type=submit]');
+  button.disabled = true;
+  button.textContent = 'Signing in...';
   const r = await fetch(API + '/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -48,7 +52,22 @@ async function login(username, password) {
   session = await r.json();
   // Cookie set by the server; we also keep the token for explicit Authorization.
   await refreshMe();
+  await completeClientAuthIfNeeded();
   enterApp();
+  button.disabled = false;
+  button.textContent = 'Sign in';
+}
+
+async function completeClientAuthIfNeeded() {
+  if (!clientAuth || !session || !session.token) return;
+  await api('/client-auth/complete', {
+    method: 'POST',
+    body: JSON.stringify({
+      session_code: clientAuth.sessionCode,
+      client_state: clientAuth.clientState,
+    }),
+  });
+  showToast('Lore client login approved');
 }
 
 async function logout() {
@@ -63,6 +82,7 @@ async function logout() {
   session = null;
   me = null;
   document.cookie = 'session=; Path=/; Max-Age=0';
+  document.cookie = 'lore_admin_session=; Path=/; Max-Age=0';
   enterLogin();
 }
 
@@ -85,7 +105,7 @@ function enterApp() {
   const who = me && me.user ? me.user : (session && session.user) || {};
   $('#who').textContent = (who.username || '') + ' · ' + (who.role || '');
   $('#logout').hidden = false;
-  refreshUsers();
+  refreshUsers().catch(e => showToast(String(e.message || e), 'error'));
 }
 
 function roleBadge(role) {
@@ -221,6 +241,13 @@ function bindTabs() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('client_auth_session') && params.has('client_state')) {
+    clientAuth = {
+      sessionCode: params.get('client_auth_session'),
+      clientState: params.get('client_state'),
+    };
+  }
   $('#login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const f = e.target;
@@ -229,6 +256,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       $('#login-error').textContent = String(err.message || err);
       $('#login-error').hidden = false;
+      const button = $('#login-form button[type=submit]');
+      button.disabled = false;
+      button.textContent = 'Sign in';
     }
   });
   $('#logout').addEventListener('click', logout);
@@ -240,7 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bindTabs();
 
   // Try to auto-resume from existing session
-  if (document.cookie.includes('session=')) {
+  if (document.cookie.includes('lore_admin_session=')) {
     // Probe /me; if it succeeds, the cookie is good
     api('/auth/me').then(() => {
       enterApp();

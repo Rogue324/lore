@@ -18,7 +18,6 @@ pub mod storage;
 pub mod storage_service;
 pub mod thinclient;
 
-use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -215,6 +214,10 @@ pub fn get_user_id(extensions: &Extensions) -> String {
     get_user_id_from_token_ref(auth)
 }
 
+pub fn is_local_admin_auth_url(auth_url: &str) -> bool {
+    auth_url.starts_with("lore-admin://") || auth_url.starts_with("lore-admins://")
+}
+
 /// Marker that opts the gRPC server crate into [`RepositoryWriteToken::server`].
 ///
 /// Defined here (private) so the only path to mint a server token in this
@@ -282,13 +285,12 @@ pub(crate) fn log_server_error(status: &Status) {
 }
 
 pub fn is_owner_or_admin(extensions: &Extensions, repository: RepositoryId) -> bool {
-    let user_permissions = user_permissions(extensions, repository);
-    user_permissions.contains(&"owner".to_string())
-        || user_permissions.contains(&"admin".to_string())
+    has_required_permission(extensions, repository, "owner")
+        || has_required_permission(extensions, repository, "admin")
 }
 
 pub fn can_obliterate(extensions: &Extensions, repository: RepositoryId) -> bool {
-    user_permissions(extensions, repository).contains(&"obliterate".to_string())
+    has_required_permission(extensions, repository, "obliterate")
 }
 
 pub fn can_admin_lock(extensions: &Extensions, repository: RepositoryId) -> bool {
@@ -315,29 +317,20 @@ pub fn has_required_permission(
 ) -> bool {
     get_matching_permissions(extensions, repository_to_check)
         .into_iter()
-        .any(|resource_permission| {
-            resource_permission
-                .permission
-                .contains(&permission_to_check.to_string())
-        })
+        .any(|resource_permission| resource_permission.has_permission(permission_to_check))
 }
 
 pub fn user_permissions(extensions: &Extensions, repository: RepositoryId) -> Vec<String> {
     let user_resources = resources_from_token(get_authorization(extensions).ok());
+    let repository_to_match = format!("urc-{repository}");
+    let mut permissions = Vec::new();
     for resource in user_resources {
-        let resource_repository = resource
-            .resource_id
-            .strip_prefix("urc-")
-            .unwrap_or_default();
-        let resource_repository: RepositoryId = Context::from_str(resource_repository)
-            .unwrap_or_default()
-            .into();
-        if resource_repository == repository {
-            return resource.permission;
+        if resource.matches_repository(&repository_to_match) {
+            permissions.extend(resource.permission);
         }
     }
 
-    Vec::new()
+    permissions
 }
 
 pub fn extract_correlation_id<B>(request: &tonic::Request<B>) -> Option<String> {

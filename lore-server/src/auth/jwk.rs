@@ -55,6 +55,29 @@ pub trait JWKService: Send + Sync {
     ) -> Result<(DecodingKey, jsonwebtoken::Algorithm), JWKServiceError>;
 }
 
+#[derive(Clone)]
+pub struct LocalHmacJwkService {
+    decoding_key: DecodingKey,
+}
+
+impl LocalHmacJwkService {
+    pub fn new(secret: &[u8]) -> Self {
+        Self {
+            decoding_key: DecodingKey::from_secret(secret),
+        }
+    }
+}
+
+#[async_trait]
+impl JWKService for LocalHmacJwkService {
+    async fn get_key(
+        &self,
+        _kid: &str,
+    ) -> Result<(DecodingKey, jsonwebtoken::Algorithm), JWKServiceError> {
+        Ok((self.decoding_key.clone(), jsonwebtoken::Algorithm::HS256))
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct JwkServiceImpl {
     // allow to be refetched from different threads if needed

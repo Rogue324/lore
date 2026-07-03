@@ -50,6 +50,12 @@ impl ResourcePermission {
         self.resource_id == "urc-*"
     }
 
+    pub fn has_permission(&self, permission: &str) -> bool {
+        self.permission
+            .iter()
+            .any(|allowed| allowed == "*" || allowed == permission)
+    }
+
     pub fn matches_repository(&self, repository_id: &String) -> bool {
         self.resource_id == *repository_id || self.is_wildcard_resource()
     }

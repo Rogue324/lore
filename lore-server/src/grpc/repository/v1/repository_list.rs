@@ -25,8 +25,10 @@ use tracing::debug;
 use super::record::build_repository;
 use crate::grpc::ServerResultExt;
 use crate::grpc::extract_correlation_id;
+use crate::grpc::get_authorization;
 use crate::grpc::get_user_id;
 use crate::grpc::handlers::repository_list::lookup_authorized_repositories;
+use crate::grpc::is_local_admin_auth_url;
 use crate::util::setup_execution;
 
 type ListStream =
@@ -55,6 +57,11 @@ pub async fn handler(
         .get("authorization")
         .and_then(|value| value.to_str().ok())
         .map(|s| s.to_string());
+    let _local_admin_authenticated = auth_url
+        .as_deref()
+        .is_some_and(is_local_admin_auth_url)
+        .then(|| get_authorization(request.extensions()))
+        .transpose()?;
     let req = request.into_inner();
     let creator_filter = req.creator;
 
@@ -119,7 +126,9 @@ async fn list_candidate_ids(
     auth_url: Option<String>,
     authorization: Option<String>,
 ) -> Result<Vec<RepositoryId>, Status> {
-    if let Some(auth_url) = auth_url {
+    if let Some(auth_url) = auth_url
+        && !is_local_admin_auth_url(&auth_url)
+    {
         let ids = lookup_authorized_repositories(auth_url, authorization).await?;
         Ok(ids.into_iter().map(RepositoryId::from).collect())
     } else {

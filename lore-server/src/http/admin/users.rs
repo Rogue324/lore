@@ -13,11 +13,11 @@ use chrono::Utc;
 use serde::Deserialize;
 use uuid::Uuid;
 
+use super::AdminAppState;
 use super::audit::audit;
 use super::middleware::{AdminAuth, ApiAuthError, parse_uuid_param};
 use super::session::AdminRole;
 use super::store::{AdminUser, AdminUserView, hash_password};
-use super::AdminAppState;
 
 #[derive(Debug, Deserialize)]
 pub struct CreateUserRequest {
@@ -27,10 +27,7 @@ pub struct CreateUserRequest {
     pub role: AdminRole,
 }
 
-pub async fn list_users(
-    State(state): State<AdminAppState>,
-    auth: AdminAuth,
-) -> Response {
+pub async fn list_users(State(state): State<AdminAppState>, auth: AdminAuth) -> Response {
     if let Err(e) = auth.require_operator() {
         return e.into_response();
     }
@@ -77,8 +74,7 @@ pub async fn create_user(
             .into_response();
     }
     if req.display_name.trim().is_empty() {
-        return ApiAuthError::BadRequest("display_name must not be empty".into())
-            .into_response();
+        return ApiAuthError::BadRequest("display_name must not be empty".into()).into_response();
     }
 
     let password_hash = match hash_password(&req.password) {
@@ -189,10 +185,8 @@ pub async fn delete_user(
     };
     // Self-delete guard: don't let an admin accidentally nuke themselves.
     if id == auth.0.sub {
-        return ApiAuthError::BadRequest(
-            "cannot delete the currently authenticated user".into(),
-        )
-        .into_response();
+        return ApiAuthError::BadRequest("cannot delete the currently authenticated user".into())
+            .into_response();
     }
     let user = match state.user_store.get(id).await {
         Ok(Some(u)) => u,
@@ -252,7 +246,10 @@ pub async fn admin_set_password(
 pub fn router(state: AdminAppState) -> Router<AdminAppState> {
     Router::new()
         .route("/", get(list_users).post(create_user))
-        .route("/:id", get(get_user).patch(update_user).delete(delete_user))
-        .route("/:id/password", post(admin_set_password))
+        .route(
+            "/{id}",
+            get(get_user).patch(update_user).delete(delete_user),
+        )
+        .route("/{id}/password", post(admin_set_password))
         .with_state(state)
 }

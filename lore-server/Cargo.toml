@@ -72,6 +72,7 @@ lore-notification = { workspace = true }
 lore-proto = { workspace = true }
 lore-telemetry = { workspace = true }
 uuid = { workspace = true, features = ["serde"] }
+urlencoding = { workspace = true }
 x509-parser = { workspace = true }
 zerocopy = { workspace = true }
 
