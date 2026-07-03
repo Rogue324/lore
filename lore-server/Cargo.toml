@@ -49,7 +49,9 @@ toml = { workspace = true }
 tonic = { workspace = true }
 tonic-prost = { workspace = true }
 tower = { workspace = true }
-tower-http = { workspace = true, features = ["timeout", "trace"] }
+tower-http = { workspace = true, features = ["timeout", "trace", "set-cookie", "fs"] }
+argon2 = "0.5"
+chrono = { workspace = true }
 tracing = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-ecs = { workspace = true }

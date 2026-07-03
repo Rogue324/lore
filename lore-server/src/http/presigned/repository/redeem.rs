@@ -261,7 +261,7 @@ mod tests {
                     presign_config: Some(config),
                 };
                 let settings = LoreHttpServerSettings::default();
-                let app = create_router(state, test_health, &settings);
+                let app = create_router(state, test_health, &settings, None);
                 let server = TestServer::new(app).unwrap();
 
                 let response = server
@@ -307,7 +307,7 @@ mod tests {
                     presign_config: Some(config),
                 };
                 let settings = LoreHttpServerSettings::default();
-                let app = create_router(state, test_health, &settings);
+                let app = create_router(state, test_health, &settings, None);
                 let server = TestServer::new(app).unwrap();
 
                 let response = server
@@ -355,7 +355,7 @@ mod tests {
                     presign_config: Some(config),
                 };
                 let settings = LoreHttpServerSettings::default();
-                let app = create_router(state, test_health, &settings);
+                let app = create_router(state, test_health, &settings, None);
                 let server = TestServer::new(app).unwrap();
 
                 let response = server
@@ -390,7 +390,7 @@ mod tests {
                     presign_config: Some(config),
                 };
                 let settings = LoreHttpServerSettings::default();
-                let app = create_router(state, test_health, &settings);
+                let app = create_router(state, test_health, &settings, None);
                 let server = TestServer::new(app).unwrap();
 
                 let response = server

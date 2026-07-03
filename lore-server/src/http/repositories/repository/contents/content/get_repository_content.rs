@@ -208,7 +208,7 @@ mod tests {
                 };
 
                 let settings = LoreHttpServerSettings::default();
-                let app = create_router(test_shared_state, test_health, &settings);
+                let app = create_router(test_shared_state, test_health, &settings, None);
                 let test_server = TestServer::new(app).unwrap();
 
                 let response = test_server.get("/does-not-exist").expect_failure().await;
@@ -233,7 +233,7 @@ mod tests {
                     presign_config: None,
                 };
                 let settings = LoreHttpServerSettings::default();
-                let app = create_router(test_shared_state, test_health, &settings);
+                let app = create_router(test_shared_state, test_health, &settings, None);
                 let test_server = TestServer::new(app).unwrap();
 
                 // Create the server and test the request
@@ -260,7 +260,7 @@ mod tests {
                     presign_config: None,
                 };
                 let settings = LoreHttpServerSettings::default();
-                let app = create_router(test_shared_state, test_health, &settings);
+                let app = create_router(test_shared_state, test_health, &settings, None);
                 let test_server = TestServer::new(app).unwrap();
 
                 // Create the server and test the request
@@ -304,7 +304,7 @@ mod tests {
                     presign_config: None,
                 };
                 let settings = LoreHttpServerSettings::default();
-                let app = create_router(test_shared_state, test_health, &settings);
+                let app = create_router(test_shared_state, test_health, &settings, None);
                 let test_server = TestServer::new(app).unwrap();
                 let valid_url = format!("/v1/repository/{repository}/content/{address}");
 
@@ -347,7 +347,7 @@ mod tests {
                     presign_config: None,
                 };
                 let settings = LoreHttpServerSettings::default();
-                let app = create_router(test_shared_state, test_health, &settings);
+                let app = create_router(test_shared_state, test_health, &settings, None);
                 let test_server = TestServer::new(app).unwrap();
                 let valid_url = format!("/v1/repository/{repository}/content/{address}");
 
@@ -407,7 +407,7 @@ mod tests {
                     presign_config: None,
                 };
                 let settings = LoreHttpServerSettings::default();
-                let app = create_router(test_shared_state, test_health, &settings);
+                let app = create_router(test_shared_state, test_health, &settings, None);
                 let test_server = TestServer::new(app).unwrap();
                 let valid_url = format!("/v1/repository/{repository}/content/{address}");
 

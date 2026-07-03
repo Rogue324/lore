@@ -47,7 +47,7 @@ mod tests {
             presign_config: None,
         };
         let settings = LoreHttpServerSettings::default();
-        let app = create_router(test_shared_state, test_health, &settings);
+        let app = create_router(test_shared_state, test_health, &settings, None);
         let test_server = TestServer::new(app).unwrap();
 
         let response = test_server.get("/health_check").await;
@@ -78,7 +78,7 @@ mod tests {
             store_health_check: true,
             ..Default::default()
         };
-        let app = create_router(test_shared_state, test_health, &settings);
+        let app = create_router(test_shared_state, test_health, &settings, None);
         let test_server = TestServer::new(app).unwrap();
 
         let response = test_server.get("/health_check").await;

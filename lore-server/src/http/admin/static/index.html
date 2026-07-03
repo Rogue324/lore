@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Lore Admin</title>
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Lore Admin</div>
+    <div id="who" class="who"></div>
+    <button id="logout" class="ghost" hidden>Sign out</button>
+  </header>
+
+  <main>
+    <!-- Login screen -->
+    <section id="login-screen" class="card">
+      <h1>Sign in</h1>
+      <form id="login-form">
+        <label>Username
+          <input name="username" autocomplete="username" required>
+        </label>
+        <label>Password
+          <input name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button type="submit">Sign in</button>
+        <p id="login-error" class="error" hidden></p>
+      </form>
+      <p class="hint">First run? The default account is <code>admin</code> / <code>admin</code>. Rotate it immediately.</p>
+    </section>
+
+    <!-- App shell, shown after login -->
+    <section id="app-screen" hidden>
+      <nav class="tabs">
+        <button data-tab="users" class="tab active">Users</button>
+        <button data-tab="me" class="tab">My account</button>
+      </nav>
+
+      <section id="tab-users" class="tabpane">
+        <div class="pane-head">
+          <h2>Users</h2>
+          <button id="new-user" class="primary">New user</button>
+        </div>
+        <table class="grid">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Display name</th>
+              <th>Role</th>
+              <th>Created</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </section>
+
+      <section id="tab-me" class="tabpane" hidden>
+        <h2>My account</h2>
+        <div id="me-info" class="card"></div>
+        <h3>Change password</h3>
+        <form id="change-pw" class="card">
+          <label>Current password
+            <input name="current_password" type="password" autocomplete="current-password" required>
+          </label>
+          <label>New password (min 8 chars)
+            <input name="new_password" type="password" minlength="8" autocomplete="new-password" required>
+          </label>
+          <button type="submit">Update password</button>
+          <p id="pw-msg" class="hint" hidden></p>
+        </form>
+      </section>
+    </section>
+
+    <!-- New / edit user dialog -->
+    <dialog id="user-dialog">
+      <form id="user-form" method="dialog">
+        <h2 id="user-dialog-title">New user</h2>
+        <input type="hidden" name="id">
+        <label>Username <input name="username" required></label>
+        <label>Display name <input name="display_name" required></label>
+        <label>Role
+          <select name="role">
+            <option value="Admin">Admin</option>
+            <option value="Operator" selected>Operator</option>
+            <option value="Viewer">Viewer</option>
+          </select>
+        </label>
+        <label id="pw-row">Password (min 8 chars) <input name="password" type="password" minlength="8"></label>
+        <p id="user-form-err" class="error" hidden></p>
+        <menu>
+          <button type="button" value="cancel">Cancel</button>
+          <button type="submit" value="save" class="primary">Save</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" hidden></div>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

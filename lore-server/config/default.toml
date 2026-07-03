@@ -75,6 +75,33 @@ available_interval_seconds = 30
 available_timeout_seconds = 5
 store_health_check = false
 
+# -----------------------------------------------------------------------------
+# Admin backend (login + user management) — disabled by default.
+# -----------------------------------------------------------------------------
+# When enabled, an additional web UI is exposed at the same HTTP port under
+# `/admin` (login page, user table, role assignments, self-service password
+# change). The admin subsystem uses its own HS256-signed JWT sessions and is
+# fully isolated from the gRPC business auth path.
+#
+# To enable, copy this block into an override config (e.g. `local.toml`) and:
+#   1. Generate a secret:   openssl rand -hex 32
+#   2. Paste it below.
+#   3. Set `users_file` to a writable JSON path.
+#
+# On first start with `enabled = true` and an empty users file, a default
+# `admin / admin` user is created and a warning is logged. Change the password
+# immediately via the UI (or `POST /admin/auth/change-password`).
+#
+# [server.http.admin]
+# enabled = true
+# users_file = "/var/lib/lore-server/admin-users.json"
+# session_jwt_secret = "<INSERT 32+ BYTE RANDOM SECRET HERE>"
+# session_ttl_seconds = 3600        # 1 hour
+# cookie_name = "lore_admin_session"
+# cookie_secure = false             # set true behind HTTPS
+# listen_address = "0.0.0.0"        # currently informational — admin shares the HTTP listener
+# listen_port = 41339               # currently informational — admin shares the HTTP listener
+
 # =============================================================================
 # Store Configuration
 # =============================================================================

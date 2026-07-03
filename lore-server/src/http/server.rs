@@ -24,6 +24,7 @@ use ring::hmac;
 use tokio::net::TcpListener;
 use tracing::info;
 
+use super::admin::{self, AdminAppState};
 use super::health_check;
 use super::presigned;
 use super::tracing::lore_http_tracing;
@@ -105,6 +106,7 @@ pub fn create_router(
     shared_state: ServerState,
     health: ServerHealth,
     settings: &LoreHttpServerSettings,
+    admin_state: Option<AdminAppState>,
 ) -> Router {
     let repository_router: Router<ServerState> = repositories::create_router(shared_state.clone());
     let authenticated_router = Router::new()
@@ -141,6 +143,10 @@ pub fn create_router(
             "/v1/presigned",
             presigned::create_router(Arc::new(shared_state.clone())),
         );
+    }
+
+    if let Some(admin) = admin_state {
+        router = admin::mount(router, Some(admin));
     }
 
     router
@@ -221,6 +227,7 @@ impl LoreHttpServer {
         immutable_store: Arc<dyn lore_storage::ImmutableStore>,
         mutable_store: Arc<dyn lore_storage::MutableStore>,
         jwt_verifier: Option<JwtVerifier>,
+        admin_state: Option<AdminAppState>,
         signal: impl Future<Output = ()> + Send + 'static,
     ) -> Result<()> {
         let addr = SocketAddr::from_str(format!("{}:{}", settings.host, settings.port).as_str())
@@ -262,7 +269,7 @@ impl LoreHttpServer {
             presign_config,
         };
 
-        let app = create_router(shared_state, health, &settings);
+        let app = create_router(shared_state, health, &settings, admin_state);
 
         let listener = TcpListener::bind(addr)
             .await

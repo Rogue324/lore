@@ -21,6 +21,26 @@ verify_client_certs = false
 #presigned_url_hmac_key = "<INSERT 32 BYTE HEX ENCODED KEY HERE>"
 
 # =============================================================================
+# Admin Backend (login + user management) — Local Development
+# =============================================================================
+# Enabled out of the box for local development so you can hit
+# http://localhost:41339/admin/ in a browser immediately. The first start
+# creates a default `admin / admin` user (a warning is logged) — change the
+# password after first login.
+#
+# DO NOT use this exact secret in production. Generate your own with
+# `openssl rand -hex 32` and rotate the cookie name in tandem.
+[server.http.admin]
+enabled = true
+users_file = "/tmp/lore-server/admin-users.json"
+session_jwt_secret = "dev_only_secret_change_me_dev_only_secret_change_me"
+session_ttl_seconds = 3600
+cookie_name = "lore_admin_session"
+cookie_secure = false
+listen_address = "127.0.0.1"
+listen_port = 41339
+
+# =============================================================================
 # Store Configuration
 # =============================================================================
 

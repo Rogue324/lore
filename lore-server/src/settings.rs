@@ -22,6 +22,7 @@ use crate::auth::jwk::JWKServiceSettings;
 use crate::grpc::server::FeatureSettings;
 use crate::grpc::server::GrpcPublicServicesSettings;
 use crate::hooks::HookSettings;
+use crate::http::admin::config::AdminSettings;
 use crate::quic::client_monitor::default_quic_client_monitor_interval_secs;
 use crate::store::replica_factory::ReplicaFactorySettings;
 use crate::tls::CertificateSettings;
@@ -271,6 +272,9 @@ pub struct HttpSettings {
     pub presigned_url_default_ttl_seconds: u64,
     #[serde(default = "HttpSettings::default_presigned_url_max_ttl_seconds")]
     pub presigned_url_max_ttl_seconds: u64,
+    /// Optional admin backend (user management + self-service).
+    /// When `Some`, the admin router is mounted at `/admin/`.
+    pub admin: Option<AdminSettings>,
 }
 
 impl HttpSettings {

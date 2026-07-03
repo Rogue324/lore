@@ -73,6 +73,7 @@ use crate::hooks::HookDispatcher;
 use crate::hooks::HookRegistrationContext;
 use crate::hooks::HookRegistry;
 use crate::http::LoreHttpServer;
+use crate::http::admin::{self, AdminAppState};
 use crate::http::server::LoreHttpServerSettings;
 use crate::http::server::PresignSettings;
 use crate::plugins;
@@ -615,6 +616,7 @@ async fn launch_http_server(
     immutable_store: Arc<dyn ImmutableStore>,
     mutable_store: Arc<dyn MutableStore>,
     jwt_verifier: Option<JwtVerifier>,
+    admin_state: Option<AdminAppState>,
     mut shutdown_rx: tokio::sync::watch::Receiver<bool>,
 ) -> Result<()> {
     LoreHttpServer::serve(
@@ -622,6 +624,7 @@ async fn launch_http_server(
         immutable_store,
         mutable_store,
         jwt_verifier,
+        admin_state,
         async move {
             let _ = shutdown_rx.wait_for(|&v| v).await;
         },
@@ -2017,6 +2020,27 @@ async fn async_main(settings: (Settings, StringHash), config: ServerConfig) -> R
             let mutable_store = mutable_store.clone();
             let shutdown_rx = _shutdown_rx.clone();
 
+            // Build the admin subsystem (login + user management + static
+            // SPA) once at startup, sharing the same HTTP listener as
+            // `/health_check`. We only construct it when the operator has
+            // explicitly opted in via `[server.http.admin] enabled = true`;
+            // users who don't need an admin UI never have to provide a
+            // session JWT secret.
+            let admin_state = match http_settings.admin.as_ref() {
+                Some(cfg) if cfg.enabled => Some(admin::build_admin_state(cfg).await?),
+                _ => None,
+            };
+            if admin_state.is_some() {
+                info!(
+                    "Admin backend enabled at /admin (users_file: {})",
+                    http_settings
+                        .admin
+                        .as_ref()
+                        .map(|c| c.users_file.as_str())
+                        .unwrap_or("")
+                );
+            }
+
             lore_spawn!(
                 endpoints,
                 launch_http_server(
@@ -2024,6 +2048,7 @@ async fn async_main(settings: (Settings, StringHash), config: ServerConfig) -> R
                     immutable_store,
                     mutable_store,
                     jwt_verifier,
+                    admin_state,
                     shutdown_rx,
                 )
             );
