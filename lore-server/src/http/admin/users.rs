@@ -10,12 +10,13 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use uuid::Uuid;
 
 use super::audit::audit;
 use super::middleware::{AdminAuth, ApiAuthError, parse_uuid_param};
-use super::store::{AdminRole, AdminUser, AdminUserView, UserStore, hash_password};
+use super::session::AdminRole;
+use super::store::{AdminUser, AdminUserView, hash_password};
 use super::AdminAppState;
 
 #[derive(Debug, Deserialize)]
@@ -28,9 +29,9 @@ pub struct CreateUserRequest {
 
 pub async fn list_users(
     State(state): State<AdminAppState>,
-    AdminAuth(claims): AdminAuth,
+    auth: AdminAuth,
 ) -> Response {
-    if let Err(e) = claims.require_operator() {
+    if let Err(e) = auth.require_operator() {
         return e.into_response();
     }
     let users = match state.user_store.list().await {
@@ -43,10 +44,10 @@ pub async fn list_users(
 
 pub async fn get_user(
     State(state): State<AdminAppState>,
-    AdminAuth(claims): AdminAuth,
+    auth: AdminAuth,
     Path(id): Path<String>,
 ) -> Response {
-    if let Err(e) = claims.require_operator() {
+    if let Err(e) = auth.require_operator() {
         return e.into_response();
     }
     let id = match parse_uuid_param(&id) {
@@ -62,10 +63,10 @@ pub async fn get_user(
 
 pub async fn create_user(
     State(state): State<AdminAppState>,
-    AdminAuth(claims): AdminAuth,
+    auth: AdminAuth,
     Json(req): Json<CreateUserRequest>,
 ) -> Response {
-    if let Err(e) = claims.require_admin() {
+    if let Err(e) = auth.require_admin() {
         return e.into_response();
     }
     if req.username.trim().is_empty() {
@@ -97,7 +98,7 @@ pub async fn create_user(
     match state.user_store.create(user.clone()).await {
         Ok(_) => {
             audit(
-                &claims,
+                &auth.0,
                 "create_user",
                 Some(&user.username),
                 Some(serde_json::json!({"role": user.role})),
@@ -120,11 +121,11 @@ pub struct UpdateUserRequest {
 
 pub async fn update_user(
     State(state): State<AdminAppState>,
-    AdminAuth(claims): AdminAuth,
+    auth: AdminAuth,
     Path(id): Path<String>,
     Json(req): Json<UpdateUserRequest>,
 ) -> Response {
-    if let Err(e) = claims.require_admin() {
+    if let Err(e) = auth.require_admin() {
         return e.into_response();
     }
     let id = match parse_uuid_param(&id) {
@@ -166,7 +167,7 @@ pub async fn update_user(
         return ApiAuthError::Internal(e.to_string()).into_response();
     }
     audit(
-        &claims,
+        &auth.0,
         "update_user",
         Some(&user.username),
         Some(serde_json::Value::Object(changed)),
@@ -176,10 +177,10 @@ pub async fn update_user(
 
 pub async fn delete_user(
     State(state): State<AdminAppState>,
-    AdminAuth(claims): AdminAuth,
+    auth: AdminAuth,
     Path(id): Path<String>,
 ) -> Response {
-    if let Err(e) = claims.require_admin() {
+    if let Err(e) = auth.require_admin() {
         return e.into_response();
     }
     let id = match parse_uuid_param(&id) {
@@ -187,7 +188,7 @@ pub async fn delete_user(
         Err(e) => return e.into_response(),
     };
     // Self-delete guard: don't let an admin accidentally nuke themselves.
-    if id == claims.sub {
+    if id == auth.0.sub {
         return ApiAuthError::BadRequest(
             "cannot delete the currently authenticated user".into(),
         )
@@ -202,7 +203,7 @@ pub async fn delete_user(
         return ApiAuthError::Internal(e.to_string()).into_response();
     }
     audit(
-        &claims,
+        &auth.0,
         "delete_user",
         Some(&user.username),
         Some(serde_json::json!({"role": user.role})),
@@ -217,11 +218,11 @@ pub struct AdminSetPasswordRequest {
 
 pub async fn admin_set_password(
     State(state): State<AdminAppState>,
-    AdminAuth(claims): AdminAuth,
+    auth: AdminAuth,
     Path(id): Path<String>,
     Json(req): Json<AdminSetPasswordRequest>,
 ) -> Response {
-    if let Err(e) = claims.require_admin() {
+    if let Err(e) = auth.require_admin() {
         return e.into_response();
     }
     if req.new_password.len() < 8 {
@@ -244,7 +245,7 @@ pub async fn admin_set_password(
     if let Err(e) = state.user_store.update(user.clone()).await {
         return ApiAuthError::Internal(e.to_string()).into_response();
     }
-    audit(&claims, "admin_set_password", Some(&user.username), None);
+    audit(&auth.0, "admin_set_password", Some(&user.username), None);
     (StatusCode::OK, Json(serde_json::json!({"ok": true}))).into_response()
 }
 

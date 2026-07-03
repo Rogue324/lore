@@ -49,9 +49,9 @@ toml = { workspace = true }
 tonic = { workspace = true }
 tonic-prost = { workspace = true }
 tower = { workspace = true }
-tower-http = { workspace = true, features = ["timeout", "trace", "set-cookie", "fs"] }
-argon2 = "0.5"
-chrono = { workspace = true }
+tower-http = { workspace = true, features = ["timeout", "trace", "fs"] }
+argon2 = { package = "rust-argon2", version = "3.0" }
+chrono = { workspace = true, features = ["serde"] }
 tracing = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-ecs = { workspace = true }
@@ -71,7 +71,7 @@ lore-macro = { workspace = true }
 lore-notification = { workspace = true }
 lore-proto = { workspace = true }
 lore-telemetry = { workspace = true }
-uuid = { workspace = true }
+uuid = { workspace = true, features = ["serde"] }
 x509-parser = { workspace = true }
 zerocopy = { workspace = true }
 

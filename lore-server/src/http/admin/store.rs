@@ -11,8 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
-use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng};
-use argon2::{Argon2, Algorithm, Params, Version};
+use argon2::{self, Config};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -98,22 +97,17 @@ pub trait UserStore: Send + Sync {
 /// Hash a plaintext password with argon2id (m=19MiB, t=2, p=1) and return the
 /// PHC string. This is the OWASP-recommended baseline for interactive logins.
 pub fn hash_password(plain: &str) -> Result<String, UserStoreError> {
-    let salt = SaltString::generate(&mut OsRng);
-    let params = Params::new(19 * 1024, 2, 1, None)
-        .map_err(|e| UserStoreError::Hashing(e.to_string()))?;
-    let alg = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
-    alg.hash_password(plain.as_bytes(), &salt)
-        .map(|h| h.to_string())
+    let salt = rand::random::<[u8; 16]>();
+    let config = Config::default();
+    argon2::hash_encoded(plain.as_bytes(), &salt, &config)
         .map_err(|e| UserStoreError::Hashing(e.to_string()))
 }
 
 /// Verify a plaintext password against a PHC string. Returns `Ok(true)` on
 /// match; `Ok(false)` on mismatch; `Err` only on truly malformed hashes.
 pub fn verify_password(plain: &str, phc: &str) -> Result<bool, UserStoreError> {
-    let parsed = PasswordHash::new(phc).map_err(|e| UserStoreError::Verification(e.to_string()))?;
-    Ok(Argon2::default()
-        .verify_password(plain.as_bytes(), &parsed)
-        .is_ok())
+    Ok(argon2::verify_encoded(phc, plain.as_bytes())
+        .map_err(|e| UserStoreError::Verification(e.to_string()))?)
 }
 
 /// Simple in-memory store, useful for tests and the M1 (demo) tier.
